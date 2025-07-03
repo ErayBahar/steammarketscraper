@@ -1,6 +1,12 @@
 from core.scraper import get_listing_price
+from alerts.telegram_alert import send_telegram_alert
+from dotenv import load_dotenv
+import os
 import json
 item_list = []
+load_dotenv()
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 with open("item_list.txt","r",encoding="utf-8") as f:
     data = f.readlines()
 for line in data:
@@ -19,6 +25,18 @@ for item in item_list:
         print(f"{item}: ")
         print("🔻 Lowest Sell:", formatted_lowest_sell)
         print("🔺 Highest Buy:", formatted_highest_buy)
+        if raw_lowest_sell < raw_highest_buy:
+            print("🟢 BUY OPPORTUNITY! Seller is undercutting highest bid.")
+
+            alert_msg = (
+                f"🟢 BUY ALERT!\n"
+                f"{item}\n"
+                f"🔻 Lowest Sell: {formatted_lowest_sell} USD\n"
+                f"🔺 Highest Buy: {formatted_highest_buy} USD\n"
+                f"https://steamcommunity.com/market/listings/730/{item_nameid}"
+            )
+            send_telegram_alert(alert_msg,TELEGRAM_BOT_TOKEN,CHAT_ID)
+
     else:
         print(f"{item} couldn't be found.")
     
