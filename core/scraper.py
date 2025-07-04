@@ -9,10 +9,11 @@ def get_histogram(item_nameid):
     headers = {
         "User-Agent": get_random_user_agent()
     }
+    
     response = requests.get(url,headers=headers,timeout=10)
     if response.status_code == 200:
         data = response.json()
-        if data.get("success"):
+        if data.get("success") and data.get("lowest_sell_order") and data.get("highest_buy_order"):
             return {
                 "success":True,
                 "lowest_sell_order": float(data["lowest_sell_order"]),

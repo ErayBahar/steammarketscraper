@@ -1,19 +1,20 @@
 from core.scraper import get_listing_price
 from alerts.telegram_alert import send_telegram_alert
 from dotenv import load_dotenv
+from urllib.parse import quote 
+from concurrent.futures import ThreadPoolExecutor
 import os
 import json
 import time
 item_list = []
-def check_prices():
-    with open("item_list.txt","r",encoding="utf-8") as f:
-        data = f.readlines()
-    for line in data:
-        item_list.append(line.strip())
-    with open("cs2.json","r",encoding="utf-8") as file:
-        item_map = json.load(file)
-    for item in item_list:
+commission_rate = 0.13
+min_profit = 0.05
+with open("item_list.txt","r",encoding="utf-8") as f:
+    item_list = [line.strip() for line in f]
 
+with open("cs2.json","r",encoding="utf-8") as file:
+        item_map = json.load(file)
+def process_item(item):
         item_nameid = item_map.get(item)
         result = get_listing_price(item_nameid)
         if result["success"]:
@@ -24,15 +25,19 @@ def check_prices():
             print(f"{item}: ")
             print("🔻 Lowest Sell:", formatted_lowest_sell)
             print("🔺 Highest Buy:", formatted_highest_buy)
-            if raw_lowest_sell < raw_highest_buy:
-                print("🟢 BUY OPPORTUNITY! Seller is undercutting highest bid.")
+            net_buy_price = raw_highest_buy * (1 - commission_rate)
+            profit = net_buy_price - raw_lowest_sell
+            if profit > min_profit:
+                print("✅ Real Arbitrage Opportunity")
+                item_encoded = quote(item)
+                url = f"https://steamcommunity.com/market/listings/730/{item_encoded}"
 
                 alert_msg = (
                     f"🟢 BUY ALERT!\n"
                     f"{item}\n"
                     f"🔻 Lowest Sell: {formatted_lowest_sell} USD\n"
                     f"🔺 Highest Buy: {formatted_highest_buy} USD\n"
-                    f"https://steamcommunity.com/market/listings/730/{item_nameid}"
+                    f"{url}"
                 )
                 send_telegram_alert(alert_msg,TELEGRAM_BOT_TOKEN,CHAT_ID)
 
@@ -44,8 +49,7 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 if __name__ == "__main__":
     while True:
-        print("🔄 Checking Steam Market prices...\n")
-        check_prices()
-        print("\n⏳ Waiting 60 seconds before next check...\n")
-        time.sleep(60)
-    
+       with ThreadPoolExecutor(max_workers=1) as executor:
+        executor.map(process_item, item_list)
+
+        time.sleep(300)  
